@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <rect width="48" height="48" rx="12" fill="#0B132B"/>
+  <path d="M12 16C12 14.8954 12.8954 14 14 14H28L36 22V32C36 33.1046 35.1046 34 34 34H14C12.8954 34 12 33.1046 12 32V16Z" fill="#1E293B" stroke="#334155" stroke-width="1.5"/>
+  <path d="M28 14V22H36" fill="#38BDF8" fill-opacity="0.3" stroke="#38BDF8" stroke-width="1.5"/>
+  <path d="M16 26C16 21 21 18 25 18L25 16L29 19.5L25 23L25 21C22 21 19 23 19 26H16Z" fill="#38BDF8"/>
+  <path d="M32 24C32 29 27 32 23 32L23 34L19 30.5L23 27L23 29C26 29 29 27 29 24H32Z" fill="#A855F7"/>
+  <text x="24" y="27" font-family="system-ui, sans-serif" font-weight="900" font-size="8" fill="#FFFFFF" text-anchor="middle">SFC</text>
+</svg>

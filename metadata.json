@@ -1,0 +1,6 @@
+{
+  "name": "SFC Converter",
+  "description": "SFC Shadat Fatih Converter - Professional bilingual file converter for PDF, Images, Documents, Spreadsheets, Audio, Video, and Archives.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
