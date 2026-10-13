@@ -31,17 +31,20 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'image', label: t.catImage },
     { id: 'document', label: t.catDoc },
     { id: 'spreadsheet', label: t.catSpreadsheet },
-    { id: 'media', label: t.catMedia },
-    { id: 'archive', label: t.catArchive }
+    { id: 'presentation', label: t.catPresentation },
+    { id: 'audio', label: t.catAudio },
+    { id: 'video', label: t.catVideo },
+    { id: 'archive', label: t.catArchive },
+    { id: 'utility', label: t.catUtility }
   ];
 
   return (
     <header className="sticky top-0 z-40 w-full backdrop-blur-md bg-white/80 dark:bg-[#0B132B]/85 border-b border-slate-200/80 dark:border-slate-800 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* SFC Custom Brand Logo */}
+          {/* SFC Brand Logo */}
           <div
-            className="flex items-center gap-3 cursor-pointer group"
+            className="flex items-center gap-3 cursor-pointer group shrink-0"
             onClick={() => {
               onSelectCategory('all');
               window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -80,16 +83,16 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Desktop Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-1 overflow-x-auto py-1">
+          {/* Desktop Categories Scrollable Bar */}
+          <nav className="hidden xl:flex items-center gap-1 overflow-x-auto py-1 max-w-2xl">
             {navCategories.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => onSelectCategory(cat.id)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
                   selectedCategory === cat.id
                     ? 'bg-sky-500/10 dark:bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-400/30 shadow-sm'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:white hover:bg-slate-100 dark:hover:bg-slate-800/60'
                 }`}
               >
                 {cat.label}
@@ -97,8 +100,8 @@ export const Header: React.FC<HeaderProps> = ({
             ))}
           </nav>
 
-          {/* Header Controls (Language, Theme, Legal, Mobile Hamburger) */}
-          <div className="flex items-center gap-2">
+          {/* Controls: Language, Theme, About, Mobile Menu */}
+          <div className="flex items-center gap-2 shrink-0">
             {/* Language Toggle */}
             <button
               onClick={() => onLanguageChange(language === 'en' ? 'bn' : 'en')}
@@ -134,7 +137,7 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Mobile Hamburger Toggle */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
+              className="xl:hidden p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
               aria-label="Toggle Navigation Menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -145,7 +148,7 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="lg:hidden border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-[#0B132B]/95 px-4 pt-3 pb-6 space-y-2 backdrop-blur-lg animate-fadeIn">
+        <div className="xl:hidden border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-[#0B132B]/95 px-4 pt-3 pb-6 space-y-2 backdrop-blur-lg animate-fadeIn">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-2 py-1">
             {t.allToolsTitle}
           </div>

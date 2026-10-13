@@ -7,8 +7,11 @@ export type ToolCategory =
   | 'image'
   | 'document'
   | 'spreadsheet'
-  | 'media'
-  | 'archive';
+  | 'presentation'
+  | 'audio'
+  | 'video'
+  | 'archive'
+  | 'utility';
 
 export interface ConversionTool {
   id: string;
@@ -20,7 +23,17 @@ export interface ConversionTool {
   outputExtensions: string[];
   maxFileSizeMB: number;
   popular?: boolean;
-  engine: 'pdf' | 'image' | 'document' | 'spreadsheet' | 'archive' | 'media';
+  engine:
+    | 'pdf'
+    | 'image'
+    | 'document'
+    | 'spreadsheet'
+    | 'presentation'
+    | 'audio'
+    | 'video'
+    | 'archive'
+    | 'utility'
+    | 'ocr';
   requiresBackend?: boolean;
 }
 
@@ -34,16 +47,19 @@ export interface ConvertedFile {
   blob: Blob;
   previewUrl?: string;
   extraInfo?: string;
+  previewText?: string;
 }
 
 export interface ImageConversionSettings {
-  targetFormat: 'image/png' | 'image/jpeg' | 'image/webp';
+  targetFormat: 'image/png' | 'image/jpeg' | 'image/webp' | 'image/bmp' | 'image/x-icon' | 'image/svg+xml';
   quality: number; // 0.1 to 1.0
   resizeEnabled: boolean;
   targetWidth?: number;
   targetHeight?: number;
   maintainAspectRatio: boolean;
   rotation: number; // 0, 90, 180, 270
+  flipHorizontal?: boolean;
+  flipVertical?: boolean;
 }
 
 export interface PdfConversionSettings {
@@ -52,13 +68,39 @@ export interface PdfConversionSettings {
   rotateAngle?: number;
   deletePages?: string;
   compressionQuality?: 'low' | 'medium' | 'high';
+  watermarkText?: string;
+  watermarkOpacity?: number;
+  watermarkAngle?: number;
+  pageNumberPosition?: 'bottom-center' | 'bottom-right' | 'top-right';
+  targetImageFormat?: 'png' | 'jpeg' | 'webp' | 'bmp';
+  scale?: number;
+  metaTitle?: string;
+  metaAuthor?: string;
+  metaSubject?: string;
 }
 
 export interface SpreadsheetSettings {
-  targetFormat: 'xlsx' | 'csv' | 'json';
+  targetFormat: 'xlsx' | 'xls' | 'csv' | 'tsv' | 'json' | 'pdf' | 'html';
   selectedSheet?: string;
+  delimiter?: string;
+}
+
+export interface DocumentSettings {
+  targetFormat: 'docx' | 'pdf' | 'txt' | 'html';
+}
+
+export interface MediaSettings {
+  audioTargetFormat?: 'wav' | 'mp3' | 'ogg' | 'flac' | 'aac' | 'm4a';
+  videoTargetFormat?: 'gif' | 'frames' | 'mp3' | 'wav';
+  trimStartSec?: number;
+  trimEndSec?: number;
+  videoQuality?: 'high' | 'medium' | 'low';
 }
 
 export interface ArchiveSettings {
   compressionLevel: 1 | 5 | 9; // fast, normal, max
+}
+
+export interface UtilitySettings {
+  hashAlgorithm?: 'SHA-256' | 'SHA-1' | 'MD5';
 }

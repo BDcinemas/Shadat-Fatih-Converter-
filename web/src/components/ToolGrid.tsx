@@ -16,14 +16,24 @@ import {
   BookOpen,
   Sheet,
   Table,
-  Braces,
+  Columns,
   FileSpreadsheet,
+  Braces,
+  Presentation,
+  Images,
+  AudioWaveform,
+  Music,
+  Film,
+  Sparkles,
   Archive,
   FolderArchive,
-  Music,
-  AudioWaveform,
+  ShieldCheck,
+  Info,
   ArrowRight,
-  Flame
+  Flame,
+  FileEdit,
+  ScanText,
+  AppWindow
 } from 'lucide-react';
 
 interface ToolGridProps {
@@ -36,29 +46,43 @@ export const ToolGrid: React.FC<ToolGridProps> = ({ tools, language, onSelectToo
   const t = translations[language];
 
   const getIcon = (iconName: string) => {
-    const props = { className: 'w-6 h-6' };
     switch (iconName) {
-      case 'Files': return <Files {...props} className="w-6 h-6 text-red-500" />;
-      case 'Scissors': return <Scissors {...props} className="w-6 h-6 text-red-400" />;
-      case 'FileImage': return <FileImage {...props} className="w-6 h-6 text-orange-500" />;
-      case 'RotateCw': return <RotateCw {...props} className="w-6 h-6 text-rose-500" />;
-      case 'Trash2': return <Trash2 {...props} className="w-6 h-6 text-red-600" />;
-      case 'FileText': return <FileText {...props} className="w-6 h-6 text-amber-500" />;
-      case 'Image': return <Image {...props} className="w-6 h-6 text-sky-500" />;
-      case 'Minimize2': return <Minimize2 {...props} className="w-6 h-6 text-cyan-500" />;
-      case 'Maximize2': return <Maximize2 {...props} className="w-6 h-6 text-teal-500" />;
-      case 'FileCode': return <FileCode {...props} className="w-6 h-6 text-blue-500" />;
-      case 'Code': return <Code {...props} className="w-6 h-6 text-indigo-500" />;
-      case 'BookOpen': return <BookOpen {...props} className="w-6 h-6 text-violet-500" />;
-      case 'Sheet': return <Sheet {...props} className="w-6 h-6 text-emerald-500" />;
-      case 'Table': return <Table {...props} className="w-6 h-6 text-green-500" />;
-      case 'Braces': return <Braces {...props} className="w-6 h-6 text-lime-500" />;
-      case 'FileSpreadsheet': return <FileSpreadsheet {...props} className="w-6 h-6 text-emerald-600" />;
-      case 'Archive': return <Archive {...props} className="w-6 h-6 text-purple-500" />;
-      case 'FolderArchive': return <FolderArchive {...props} className="w-6 h-6 text-fuchsia-500" />;
-      case 'Music': return <Music {...props} className="w-6 h-6 text-pink-500" />;
-      case 'AudioWaveform': return <AudioWaveform {...props} className="w-6 h-6 text-rose-500" />;
-      default: return <Files {...props} className="w-6 h-6 text-sky-500" />;
+      case 'Files': return <Files className="w-6 h-6 text-red-500" />;
+      case 'Scissors': return <Scissors className="w-6 h-6 text-red-400" />;
+      case 'FileImage': return <FileImage className="w-6 h-6 text-orange-500" />;
+      case 'Stamp': return <FileText className="w-6 h-6 text-indigo-500" />;
+      case 'Hash': return <FileCode className="w-6 h-6 text-sky-500" />;
+      case 'RotateCw': return <RotateCw className="w-6 h-6 text-rose-500" />;
+      case 'Trash2': return <Trash2 className="w-6 h-6 text-red-600" />;
+      case 'FileText': return <FileText className="w-6 h-6 text-amber-500" />;
+      case 'FileEdit': return <FileEdit className="w-6 h-6 text-purple-500" />;
+      case 'ScanText': return <ScanText className="w-6 h-6 text-emerald-500" />;
+      case 'Image': return <Image className="w-6 h-6 text-sky-500" />;
+      case 'AppWindow': return <AppWindow className="w-6 h-6 text-blue-500" />;
+      case 'Vector': return <Sparkles className="w-6 h-6 text-fuchsia-500" />;
+      case 'Minimize2': return <Minimize2 className="w-6 h-6 text-cyan-500" />;
+      case 'Maximize2': return <Maximize2 className="w-6 h-6 text-teal-500" />;
+      case 'FileWord': return <FileText className="w-6 h-6 text-blue-600" />;
+      case 'FileCode': return <FileCode className="w-6 h-6 text-blue-500" />;
+      case 'Code': return <Code className="w-6 h-6 text-indigo-500" />;
+      case 'BookOpen': return <BookOpen className="w-6 h-6 text-violet-500" />;
+      case 'Sheet': return <Sheet className="w-6 h-6 text-emerald-500" />;
+      case 'Table': return <Table className="w-6 h-6 text-green-500" />;
+      case 'Columns': return <Columns className="w-6 h-6 text-teal-500" />;
+      case 'FileSpreadsheet': return <FileSpreadsheet className="w-6 h-6 text-emerald-600" />;
+      case 'Braces': return <Braces className="w-6 h-6 text-lime-500" />;
+      case 'CodeXml': return <Code className="w-6 h-6 text-orange-500" />;
+      case 'Presentation': return <Presentation className="w-6 h-6 text-amber-600" />;
+      case 'Images': return <Images className="w-6 h-6 text-rose-500" />;
+      case 'AudioWaveform': return <AudioWaveform className="w-6 h-6 text-pink-500" />;
+      case 'Music': return <Music className="w-6 h-6 text-pink-500" />;
+      case 'Film': return <Film className="w-6 h-6 text-violet-500" />;
+      case 'Sparkles': return <Sparkles className="w-6 h-6 text-amber-500" />;
+      case 'Archive': return <Archive className="w-6 h-6 text-purple-500" />;
+      case 'FolderArchive': return <FolderArchive className="w-6 h-6 text-fuchsia-500" />;
+      case 'ShieldCheck': return <ShieldCheck className="w-6 h-6 text-emerald-500" />;
+      case 'Info': return <Info className="w-6 h-6 text-sky-500" />;
+      default: return <Files className="w-6 h-6 text-sky-500" />;
     }
   };
 
@@ -84,7 +108,6 @@ export const ToolGrid: React.FC<ToolGridProps> = ({ tools, language, onSelectToo
             onClick={() => onSelectTool(tool)}
             className="group relative flex flex-col justify-between p-5 sm:p-6 rounded-2xl bg-white dark:bg-[#1E293B] border border-slate-200/80 dark:border-slate-700/70 hover:border-sky-500/50 dark:hover:border-sky-500/50 shadow-sm hover:shadow-xl hover:shadow-sky-500/5 transition-all duration-300 cursor-pointer hover:-translate-y-1"
           >
-            {/* Header: Icon & Popular badge */}
             <div>
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-slate-800/80 flex items-center justify-center border border-slate-100 dark:border-slate-700 group-hover:scale-110 transition-transform">
@@ -98,7 +121,6 @@ export const ToolGrid: React.FC<ToolGridProps> = ({ tools, language, onSelectToo
                 )}
               </div>
 
-              {/* Title & Description */}
               <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white group-hover:text-sky-500 dark:group-hover:text-sky-400 transition-colors">
                 {title}
               </h3>
@@ -107,7 +129,6 @@ export const ToolGrid: React.FC<ToolGridProps> = ({ tools, language, onSelectToo
               </p>
             </div>
 
-            {/* Footer: Supported Formats Tag & Action Arrow */}
             <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-1.5 flex-wrap">
                 {tool.outputExtensions.slice(0, 3).map((ext) => (

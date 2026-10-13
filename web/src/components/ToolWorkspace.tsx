@@ -19,8 +19,7 @@ import {
   Sliders,
   CheckCircle2,
   Eye,
-  ArrowRight,
-  ShieldAlert
+  ArrowRight
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -31,20 +30,45 @@ import {
   rotatePdf,
   deletePdfPages,
   imagesToPdf,
-  extractPdfText
+  extractPdfText,
+  convertPdfToImages,
+  addPdfWatermark,
+  addPdfPageNumbers,
+  updatePdfMetadata
 } from '../engines/pdfEngine';
 import { processImage } from '../engines/imageEngine';
 import {
   convertCsvToXlsx,
   convertXlsxToCsv,
+  convertCsvToTsv,
   convertXlsxToJson,
   convertJsonToXlsx,
+  convertJsonToCsv,
+  convertSpreadsheetToPdf,
+  convertSpreadsheetToHtml,
+  convertXmlToJson,
+  convertJsonToXml,
   parseSpreadsheetPreview,
   SpreadsheetPreview
 } from '../engines/spreadsheetEngine';
+import {
+  convertTxtToDocx,
+  convertMarkdownToDocx,
+  convertHtmlToDocx,
+  convertDocxToHtml,
+  extractDocxText,
+  convertTxtToPdf,
+  convertHtmlToPdf
+} from '../engines/documentEngine';
+import { convertPptxToPdf, extractPptxSlidesToZip } from '../engines/presentationEngine';
 import { createZipArchive, extractZipArchive, ExtractedArchiveFile } from '../engines/archiveEngine';
-import { convertTxtToPdf, convertHtmlToPdf, extractDocxText } from '../engines/documentEngine';
-import { extractOrConvertAudio } from '../engines/mediaEngine';
+import {
+  extractOrConvertAudio,
+  extractVideoFramesToZip,
+  convertVideoToGif
+} from '../engines/mediaEngine';
+import { performOcr } from '../engines/ocrEngine';
+import { calculateChecksums, inspectFileMetadata } from '../engines/utilityEngine';
 
 interface ToolWorkspaceProps {
   tool: ConversionTool;
@@ -70,7 +94,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
   const [extractedFiles, setExtractedFiles] = useState<ExtractedArchiveFile[]>([]);
   const [spreadsheetPreview, setSpreadsheetPreview] = useState<SpreadsheetPreview | null>(null);
 
-  // Settings State
+  // Settings States
   const [imageSettings, setImageSettings] = useState<ImageConversionSettings>({
     targetFormat: 'image/webp',
     quality: 0.85,
@@ -78,41 +102,43 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
     targetWidth: 1200,
     targetHeight: 800,
     maintainAspectRatio: true,
-    rotation: 0
+    rotation: 0,
+    flipHorizontal: false,
+    flipVertical: false
   });
 
   const [pdfPageRange, setPdfPageRange] = useState('');
   const [pdfRotateAngle, setPdfRotateAngle] = useState(90);
   const [pdfPagesToDelete, setPdfPagesToDelete] = useState('');
-  const [archiveLevel, setArchiveLevel] = useState<1 | 5 | 9>(5);
-  const [targetSpreadsheetFormat, setTargetSpreadsheetFormat] = useState<'xlsx' | 'csv' | 'json'>('xlsx');
-  const [selectedSheet, setSelectedSheet] = useState<string>('');
-  const [audioTargetFormat, setAudioTargetFormat] = useState<'wav' | 'mp3'>('wav');
+  const [pdfTargetImageFormat, setPdfTargetImageFormat] = useState<'png' | 'jpeg' | 'webp' | 'bmp'>('png');
+  const [pdfWatermarkText, setPdfWatermarkText] = useState('CONFIDENTIAL');
+  const [pdfWatermarkOpacity, setPdfWatermarkOpacity] = useState(0.35);
+  const [pdfPageNumberPos, setPdfPageNumberPos] = useState<'bottom-center' | 'bottom-right' | 'top-right'>('bottom-center');
+  const [pdfMetaTitle, setPdfMetaTitle] = useState('');
+  const [pdfMetaAuthor, setPdfMetaAuthor] = useState('');
 
-  // Multi-file allowed for merge, image-to-pdf, zip-create
+  const [archiveLevel, setArchiveLevel] = useState<1 | 5 | 9>(5);
+  const [selectedSheet, setSelectedSheet] = useState<string>('');
+  const [audioTargetFormat, setAudioTargetFormat] = useState<'wav' | 'mp3' | 'ogg' | 'flac'>('wav');
+
+  // Allow multiple file select for batch tools
   const allowsMultiple =
     tool.id === 'pdf-merge' || tool.id === 'img-to-pdf' || tool.id === 'zip-create';
 
-  // Cleanup object URLs on unmount
   useEffect(() => {
     return () => {
-      if (convertedResult?.url) {
-        URL.revokeObjectURL(convertedResult.url);
-      }
+      if (convertedResult?.url) URL.revokeObjectURL(convertedResult.url);
       extractedFiles.forEach((f) => URL.revokeObjectURL(f.url));
     };
   }, [convertedResult, extractedFiles]);
 
-  // Set initial settings based on tool
   useEffect(() => {
-    if (tool.id === 'img-convert') {
-      setImageSettings((s) => ({ ...s, targetFormat: 'image/webp' }));
+    if (tool.id === 'img-to-ico') {
+      setImageSettings((s) => ({ ...s, targetFormat: 'image/x-icon' }));
+    } else if (tool.id === 'img-to-svg') {
+      setImageSettings((s) => ({ ...s, targetFormat: 'image/svg+xml' }));
     } else if (tool.id === 'img-compress') {
-      setImageSettings((s) => ({ ...s, quality: 0.7 }));
-    } else if (tool.id === 'csv-to-xlsx') {
-      setTargetSpreadsheetFormat('xlsx');
-    } else if (tool.id === 'xlsx-to-csv') {
-      setTargetSpreadsheetFormat('csv');
+      setImageSettings((s) => ({ ...s, quality: 0.65 }));
     }
   }, [tool.id]);
 
@@ -122,26 +148,23 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
     setConvertedResult(null);
 
     const fileList = Array.from(selected);
-
-    // Validate size (100 MB max)
     const maxBytes = tool.maxFileSizeMB * 1024 * 1024;
     for (const f of fileList) {
       if (f.size > maxBytes) {
-        setErrorMessage(`${f.name} exceeds the ${tool.maxFileSizeMB} MB size limit.`);
+        setErrorMessage(`${f.name} exceeds the ${tool.maxFileSizeMB} MB limit.`);
         return;
       }
     }
 
     setFiles(fileList);
 
-    // If it's a spreadsheet preview tool, parse headers
     if (tool.category === 'spreadsheet' && fileList[0]) {
       try {
         const preview = await parseSpreadsheetPreview(fileList[0]);
         setSpreadsheetPreview(preview);
         setSelectedSheet(preview.activeSheet);
       } catch {
-        // Ignore preview parse failure if file is csv or json
+        // Safe skip
       }
     }
   };
@@ -161,89 +184,167 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
 
     try {
       setStatus('processing');
-      setProgress(20);
+      setProgress(15);
       setErrorMessage(null);
 
       let result: ConvertedFile;
 
       switch (tool.id) {
+        // PDF Tools
+        case 'pdf-to-img':
+          result = await convertPdfToImages(files[0], pdfTargetImageFormat, 2.0, (p) => setProgress(p));
+          break;
         case 'pdf-merge':
           setProgress(40);
           result = await mergePdfs(files);
           break;
-
         case 'pdf-split':
           setProgress(50);
           result = await splitPdf(files[0], pdfPageRange);
           break;
-
-        case 'pdf-rotate':
-          setProgress(60);
-          result = await rotatePdf(files[0], pdfRotateAngle);
-          break;
-
-        case 'pdf-delete-pages':
-          setProgress(60);
-          result = await deletePdfPages(files[0], pdfPagesToDelete);
-          break;
-
         case 'img-to-pdf':
           setProgress(50);
           result = await imagesToPdf(files);
           break;
-
+        case 'pdf-watermark':
+          setProgress(50);
+          result = await addPdfWatermark(files[0], pdfWatermarkText, pdfWatermarkOpacity);
+          break;
+        case 'pdf-page-numbers':
+          setProgress(50);
+          result = await addPdfPageNumbers(files[0], pdfPageNumberPos);
+          break;
+        case 'pdf-rotate':
+          setProgress(50);
+          result = await rotatePdf(files[0], pdfRotateAngle);
+          break;
+        case 'pdf-delete-pages':
+          setProgress(50);
+          result = await deletePdfPages(files[0], pdfPagesToDelete);
+          break;
         case 'pdf-to-text':
-          setProgress(70);
+          setProgress(60);
           result = await extractPdfText(files[0]);
           break;
+        case 'pdf-metadata':
+          setProgress(60);
+          result = await updatePdfMetadata(files[0], pdfMetaTitle, pdfMetaAuthor, '');
+          break;
+        case 'ocr-tool':
+          result = await performOcr(files[0], 'eng', (p) => setProgress(p));
+          break;
 
+        // Image Tools
         case 'img-convert':
+        case 'img-to-ico':
+        case 'img-to-svg':
         case 'img-compress':
         case 'img-resize':
-          setProgress(60);
+          setProgress(50);
           result = await processImage(files[0], imageSettings);
           break;
 
+        // Document Tools
+        case 'txt-to-docx':
+          setProgress(50);
+          result = await convertTxtToDocx(files[0]);
+          break;
+        case 'md-to-docx':
+          setProgress(50);
+          result = await convertMarkdownToDocx(files[0]);
+          break;
+        case 'html-to-docx':
+          setProgress(50);
+          result = await convertHtmlToDocx(files[0]);
+          break;
+        case 'docx-to-html':
+          setProgress(50);
+          result = await convertDocxToHtml(files[0]);
+          break;
+        case 'docx-extract':
+          setProgress(50);
+          result = await extractDocxText(files[0]);
+          break;
         case 'txt-to-pdf':
-          setProgress(60);
+          setProgress(50);
           result = await convertTxtToPdf(files[0]);
           break;
-
         case 'html-to-pdf':
-          setProgress(60);
+          setProgress(50);
           result = await convertHtmlToPdf(files[0]);
           break;
 
-        case 'docx-extract':
-          setProgress(60);
-          result = await extractDocxText(files[0]);
-          break;
-
+        // Spreadsheet Tools
         case 'csv-to-xlsx':
-          setProgress(60);
+          setProgress(50);
           result = await convertCsvToXlsx(files[0]);
           break;
-
         case 'xlsx-to-csv':
-          setProgress(60);
-          result = await convertXlsxToCsv(files[0], selectedSheet);
+          setProgress(50);
+          result = await convertXlsxToCsv(files[0], selectedSheet, ',');
           break;
-
+        case 'csv-to-tsv':
+          setProgress(50);
+          result = await convertCsvToTsv(files[0]);
+          break;
+        case 'sheet-to-pdf':
+          setProgress(50);
+          result = await convertSpreadsheetToPdf(files[0]);
+          break;
+        case 'sheet-to-html':
+          setProgress(50);
+          result = await convertSpreadsheetToHtml(files[0]);
+          break;
         case 'xlsx-to-json':
-          setProgress(60);
+          setProgress(50);
           result = await convertXlsxToJson(files[0], selectedSheet);
           break;
-
         case 'json-to-xlsx':
-          setProgress(60);
+          setProgress(50);
           result = await convertJsonToXlsx(files[0]);
           break;
+        case 'json-to-csv':
+          setProgress(50);
+          result = await convertJsonToCsv(files[0]);
+          break;
+        case 'xml-to-json':
+          setProgress(50);
+          result = await convertXmlToJson(files[0]);
+          break;
+        case 'json-to-xml':
+          setProgress(50);
+          result = await convertJsonToXml(files[0]);
+          break;
 
+        // Presentation Tools
+        case 'pptx-to-pdf':
+          setProgress(50);
+          result = await convertPptxToPdf(files[0]);
+          break;
+        case 'pptx-to-images':
+          setProgress(50);
+          result = await extractPptxSlidesToZip(files[0]);
+          break;
+
+        // Audio & Video Tools
+        case 'audio-convert':
+          result = await extractOrConvertAudio(files[0], audioTargetFormat, (p) => setProgress(p));
+          break;
+        case 'video-audio-extract':
+          result = await extractOrConvertAudio(files[0], 'wav', (p) => setProgress(p));
+          break;
+        case 'video-to-frames':
+          result = await extractVideoFramesToZip(files[0], 8, (p) => setProgress(p));
+          break;
+        case 'video-to-gif':
+          result = await convertVideoToGif(files[0], 5, 4, (p) => setProgress(p));
+          break;
+
+        // Archive Tools
         case 'zip-create':
           setProgress(50);
           result = await createZipArchive(files, archiveLevel);
           break;
-
         case 'zip-extract': {
           setProgress(50);
           const zipRes = await extractZipArchive(files[0]);
@@ -252,15 +353,18 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
           break;
         }
 
-        case 'audio-extract':
-        case 'audio-convert':
-          result = await extractOrConvertAudio(files[0], audioTargetFormat, (p) =>
-            setProgress(p)
-          );
+        // Utility Tools
+        case 'file-checksum':
+          setProgress(50);
+          result = await calculateChecksums(files[0]);
+          break;
+        case 'file-metadata':
+          setProgress(50);
+          result = await inspectFileMetadata(files[0]);
           break;
 
         default:
-          throw new Error('Conversion tool implementation not configured.');
+          throw new Error('This tool configuration is being prepared.');
       }
 
       setProgress(100);
@@ -268,15 +372,10 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
       setStatus('success');
       onToolUsed(tool.id);
 
-      // Confetti celebration
       try {
-        confetti({
-          particleCount: 80,
-          spread: 70,
-          origin: { y: 0.6 }
-        });
+        confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
       } catch {
-        // Safe fail
+        // Safe skip
       }
     } catch (err: unknown) {
       setStatus('error');
@@ -307,7 +406,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/70 backdrop-blur-sm overflow-y-auto">
       <div className="relative w-full max-w-3xl bg-white dark:bg-[#1E293B] rounded-3xl border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col">
-        {/* Workspace Top Header */}
+        {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40">
           <div>
             <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -316,9 +415,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                 {tool.category}
               </span>
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {t[tool.descKey]}
-            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{t[tool.descKey]}</p>
           </div>
           <button
             onClick={onClose}
@@ -328,9 +425,9 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
           </button>
         </div>
 
-        {/* Workspace Body */}
+        {/* Content */}
         <div className="p-6 overflow-y-auto space-y-6">
-          {/* STEP 1: Upload / Dropzone */}
+          {/* File Upload Zone */}
           {files.length === 0 ? (
             <div
               onDragOver={(e) => e.preventDefault()}
@@ -342,7 +439,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                 ref={fileInputRef}
                 type="file"
                 multiple={allowsMultiple}
-                accept={tool.inputExtensions.join(',')}
+                accept={tool.inputExtensions.includes('*') ? undefined : tool.inputExtensions.join(',')}
                 onChange={(e) => handleFileChange(e.target.files)}
                 className="hidden"
               />
@@ -362,7 +459,6 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
               </div>
             </div>
           ) : (
-            /* Selected File List */
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -382,7 +478,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                 </button>
               </div>
 
-              <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+              <div className="max-h-40 overflow-y-auto space-y-2 pr-1">
                 {files.map((file, idx) => (
                   <div
                     key={idx}
@@ -401,7 +497,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                 ))}
               </div>
 
-              {/* STEP 2: Tool-Specific Settings */}
+              {/* Tool Settings */}
               {status !== 'success' && (
                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 space-y-4">
                   <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -409,7 +505,117 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                     <span>{t.settings}</span>
                   </div>
 
-                  {/* Image Tool Settings */}
+                  {/* PDF to Image Settings */}
+                  {tool.id === 'pdf-to-img' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                      <div>
+                        <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                          {t.formatLabel}
+                        </label>
+                        <select
+                          value={pdfTargetImageFormat}
+                          onChange={(e) => setPdfTargetImageFormat(e.target.value as 'png' | 'jpeg' | 'webp' | 'bmp')}
+                          className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white"
+                        >
+                          <option value="png">PNG (Lossless, High Quality)</option>
+                          <option value="jpeg">JPG / JPEG (Compact File Size)</option>
+                          <option value="webp">WebP (Modern Optimized)</option>
+                          <option value="bmp">BMP (24-bit Raw Bitmap)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                          Output Resolution
+                        </label>
+                        <select className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white">
+                          <option value="2">High Resolution (2x Retina - 150 DPI)</option>
+                          <option value="1">Standard Resolution (1x - 72 DPI)</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* PDF Watermark Settings */}
+                  {tool.id === 'pdf-watermark' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                      <div>
+                        <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                          {t.watermarkTextLabel}
+                        </label>
+                        <input
+                          type="text"
+                          value={pdfWatermarkText}
+                          onChange={(e) => setPdfWatermarkText(e.target.value)}
+                          className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex justify-between font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                          <span>{t.watermarkOpacityLabel}</span>
+                          <span>{Math.round(pdfWatermarkOpacity * 100)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.1"
+                          max="0.9"
+                          step="0.05"
+                          value={pdfWatermarkOpacity}
+                          onChange={(e) => setPdfWatermarkOpacity(parseFloat(e.target.value))}
+                          className="w-full accent-sky-500"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* PDF Page Numbers */}
+                  {tool.id === 'pdf-page-numbers' && (
+                    <div className="text-xs">
+                      <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                        {t.pageNumberPosLabel}
+                      </label>
+                      <select
+                        value={pdfPageNumberPos}
+                        onChange={(e) => setPdfPageNumberPos(e.target.value as 'bottom-center' | 'bottom-right' | 'top-right')}
+                        className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white"
+                      >
+                        <option value="bottom-center">Bottom Center (Standard)</option>
+                        <option value="bottom-right">Bottom Right</option>
+                        <option value="top-right">Top Right</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* PDF Metadata */}
+                  {tool.id === 'pdf-metadata' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                      <div>
+                        <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                          Document Title
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Annual Report 2026"
+                          value={pdfMetaTitle}
+                          onChange={(e) => setPdfMetaTitle(e.target.value)}
+                          className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                          Author Name
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Shadat Fatih"
+                          value={pdfMetaAuthor}
+                          onChange={(e) => setPdfMetaAuthor(e.target.value)}
+                          className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Image Settings */}
                   {tool.category === 'image' && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                       <div>
@@ -421,7 +627,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                           onChange={(e) =>
                             setImageSettings({
                               ...imageSettings,
-                              targetFormat: e.target.value as 'image/png' | 'image/jpeg' | 'image/webp'
+                              targetFormat: e.target.value as ImageConversionSettings['targetFormat']
                             })
                           }
                           className="w-full p-2 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white"
@@ -429,6 +635,9 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                           <option value="image/webp">WebP (Modern, Small Size)</option>
                           <option value="image/png">PNG (Lossless with Alpha)</option>
                           <option value="image/jpeg">JPG / JPEG (Standard)</option>
+                          <option value="image/bmp">BMP (24-bit Bitmap)</option>
+                          <option value="image/x-icon">ICO (Windows Icon)</option>
+                          <option value="image/svg+xml">SVG (Vector Tracing)</option>
                         </select>
                       </div>
 
@@ -474,54 +683,49 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                         </select>
                       </div>
 
-                      <div>
-                        <label className="flex items-center gap-2 font-semibold mb-1 text-slate-700 dark:text-slate-300 cursor-pointer">
+                      <div className="flex items-center gap-4 pt-4">
+                        <label className="flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700 dark:text-slate-300">
                           <input
                             type="checkbox"
-                            checked={imageSettings.resizeEnabled}
-                            onChange={(e) =>
-                              setImageSettings({
-                                ...imageSettings,
-                                resizeEnabled: e.target.checked
-                              })
-                            }
+                            checked={imageSettings.flipHorizontal}
+                            onChange={(e) => setImageSettings({ ...imageSettings, flipHorizontal: e.target.checked })}
                             className="rounded accent-sky-500"
                           />
-                          <span>Enable Resizing</span>
+                          <span>Flip Horizontal</span>
                         </label>
-                        {imageSettings.resizeEnabled && (
-                          <div className="flex gap-2">
-                            <input
-                              type="number"
-                              placeholder="Width"
-                              value={imageSettings.targetWidth || ''}
-                              onChange={(e) =>
-                                setImageSettings({
-                                  ...imageSettings,
-                                  targetWidth: parseInt(e.target.value, 10)
-                                })
-                              }
-                              className="w-1/2 p-2 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white"
-                            />
-                            <input
-                              type="number"
-                              placeholder="Height"
-                              value={imageSettings.targetHeight || ''}
-                              onChange={(e) =>
-                                setImageSettings({
-                                  ...imageSettings,
-                                  targetHeight: parseInt(e.target.value, 10)
-                                })
-                              }
-                              className="w-1/2 p-2 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white"
-                            />
-                          </div>
-                        )}
+                        <label className="flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700 dark:text-slate-300">
+                          <input
+                            type="checkbox"
+                            checked={imageSettings.flipVertical}
+                            onChange={(e) => setImageSettings({ ...imageSettings, flipVertical: e.target.checked })}
+                            className="rounded accent-sky-500"
+                          />
+                          <span>Flip Vertical</span>
+                        </label>
                       </div>
                     </div>
                   )}
 
-                  {/* PDF Split / Range */}
+                  {/* Audio Format Selector */}
+                  {tool.id === 'audio-convert' && (
+                    <div className="text-xs">
+                      <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                        {t.formatLabel}
+                      </label>
+                      <select
+                        value={audioTargetFormat}
+                        onChange={(e) => setAudioTargetFormat(e.target.value as 'wav' | 'mp3' | 'ogg' | 'flac')}
+                        className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white"
+                      >
+                        <option value="wav">WAV (Lossless 16-bit PCM)</option>
+                        <option value="mp3">MP3 Audio</option>
+                        <option value="flac">FLAC Lossless</option>
+                        <option value="ogg">OGG Vorbis</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* PDF Split Range */}
                   {tool.id === 'pdf-split' && (
                     <div className="text-xs">
                       <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
@@ -529,7 +733,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                       </label>
                       <input
                         type="text"
-                        placeholder="Leave blank to split all pages into a ZIP, or type e.g. 1-3, 5"
+                        placeholder="Leave blank for all pages in a ZIP, or type e.g. 1-3, 5"
                         value={pdfPageRange}
                         onChange={(e) => setPdfPageRange(e.target.value)}
                         className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white"
@@ -537,41 +741,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                     </div>
                   )}
 
-                  {/* PDF Rotate */}
-                  {tool.id === 'pdf-rotate' && (
-                    <div className="text-xs">
-                      <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
-                        {t.rotationAngle}
-                      </label>
-                      <select
-                        value={pdfRotateAngle}
-                        onChange={(e) => setPdfRotateAngle(parseInt(e.target.value, 10))}
-                        className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white"
-                      >
-                        <option value="90">90° Clockwise</option>
-                        <option value="180">180° Flip</option>
-                        <option value="270">270° Counter-Clockwise</option>
-                      </select>
-                    </div>
-                  )}
-
-                  {/* PDF Delete Pages */}
-                  {tool.id === 'pdf-delete-pages' && (
-                    <div className="text-xs">
-                      <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
-                        Page Numbers to Delete (e.g. 2, 4)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 2, 5"
-                        value={pdfPagesToDelete}
-                        onChange={(e) => setPdfPagesToDelete(e.target.value)}
-                        className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white"
-                      />
-                    </div>
-                  )}
-
-                  {/* Archive Compression Level */}
+                  {/* Archive Compression */}
                   {tool.id === 'zip-create' && (
                     <div className="text-xs">
                       <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
@@ -588,47 +758,10 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                       </select>
                     </div>
                   )}
-
-                  {/* Audio target format */}
-                  {(tool.id === 'audio-extract' || tool.id === 'audio-convert') && (
-                    <div className="text-xs">
-                      <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
-                        {t.formatLabel}
-                      </label>
-                      <select
-                        value={audioTargetFormat}
-                        onChange={(e) => setAudioTargetFormat(e.target.value as 'wav' | 'mp3')}
-                        className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white"
-                      >
-                        <option value="wav">WAV (Lossless 16-bit PCM)</option>
-                        <option value="mp3">MP3 Audio</option>
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Spreadsheet Sheet Selector */}
-                  {spreadsheetPreview && spreadsheetPreview.sheetNames.length > 1 && (
-                    <div className="text-xs">
-                      <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
-                        {t.selectWorksheet}
-                      </label>
-                      <select
-                        value={selectedSheet}
-                        onChange={(e) => setSelectedSheet(e.target.value)}
-                        className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-white"
-                      >
-                        {spreadsheetPreview.sheetNames.map((sheet) => (
-                          <option key={sheet} value={sheet}>
-                            {sheet}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
                 </div>
               )}
 
-              {/* Spreadsheet Preview Table */}
+              {/* Spreadsheet Table Preview */}
               {spreadsheetPreview && (
                 <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-700">
                   <div className="flex items-center justify-between mb-2">
@@ -638,7 +771,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                     </span>
                     <span className="text-[11px] text-slate-500">First 10 rows</span>
                   </div>
-                  <div className="overflow-x-auto max-h-40 border border-slate-200 dark:border-slate-700 rounded-lg">
+                  <div className="overflow-x-auto max-h-36 border border-slate-200 dark:border-slate-700 rounded-lg">
                     <table className="min-w-full text-[11px] text-left text-slate-700 dark:text-slate-300">
                       <thead className="bg-slate-200/70 dark:bg-slate-700 sticky top-0">
                         <tr>
@@ -673,14 +806,11 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold">{errorMessage}</p>
-                {tool.id === 'pdf-to-text' && (
-                  <p className="mt-1 text-[11px] text-red-500/80">{t.errorOcrNote}</p>
-                )}
               </div>
             </div>
           )}
 
-          {/* Processing Progress Bar */}
+          {/* Progress Bar */}
           {status === 'processing' && (
             <div className="space-y-2">
               <div className="flex justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
@@ -699,7 +829,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
             </div>
           )}
 
-          {/* STEP 4: Success Result Screen */}
+          {/* Success Screen */}
           {status === 'success' && convertedResult && (
             <div className="p-6 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 space-y-5 animate-fadeIn">
               <div className="flex items-center gap-3">
@@ -716,7 +846,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                 </div>
               </div>
 
-              {/* Size Comparison Card */}
+              {/* Size Card */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs">
                 <div>
                   <span className="text-slate-400 block text-[11px]">{t.originalSize}</span>
@@ -736,23 +866,26 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                   </span>
                   <span
                     className={`font-bold font-mono ${
-                      convertedResult.size <= originalTotalSize
-                        ? 'text-emerald-500'
-                        : 'text-amber-500'
+                      convertedResult.size <= originalTotalSize ? 'text-emerald-500' : 'text-amber-500'
                     }`}
                   >
                     {originalTotalSize > 0
-                      ? `${Math.abs(
-                          Math.round(
-                            ((originalTotalSize - convertedResult.size) / originalTotalSize) * 100
-                          )
-                        )}%`
+                      ? `${Math.abs(Math.round(((originalTotalSize - convertedResult.size) / originalTotalSize) * 100))}%`
                       : 'N/A'}
                   </span>
                 </div>
               </div>
 
-              {/* Image Preview if available */}
+              {/* Text / Preview Output */}
+              {convertedResult.previewText && (
+                <div className="p-3 bg-slate-900/5 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-700 max-h-40 overflow-y-auto">
+                  <pre className="text-xs font-mono text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                    {convertedResult.previewText}
+                  </pre>
+                </div>
+              )}
+
+              {/* Image Preview */}
               {convertedResult.previewUrl && (
                 <div className="flex justify-center bg-slate-900/5 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
                   <img
@@ -763,13 +896,13 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                 </div>
               )}
 
-              {/* Extracted Archive Files List */}
+              {/* Extracted Files List */}
               {extractedFiles.length > 0 && (
                 <div className="space-y-2">
                   <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
                     Unpacked Files ({extractedFiles.length})
                   </span>
-                  <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                  <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
                     {extractedFiles.map((file, i) => (
                       <div
                         key={i}
@@ -788,7 +921,6 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                               a.click();
                             }}
                             className="p-1 rounded text-sky-500 hover:bg-sky-50 dark:hover:bg-slate-700"
-                            title="Download this file"
                           >
                             <Download className="w-3.5 h-3.5" />
                           </button>
@@ -799,7 +931,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                 </div>
               )}
 
-              {/* Primary Download Button */}
+              {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <button
                   onClick={() => handleDownload(convertedResult)}
@@ -825,7 +957,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
           )}
         </div>
 
-        {/* Workspace Footer Actions */}
+        {/* Footer */}
         {status !== 'success' && (
           <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex items-center justify-between">
             <button

@@ -26,13 +26,15 @@ export const Hero: React.FC<HeroProps> = ({
     { id: 'image', label: t.catImage },
     { id: 'document', label: t.catDoc },
     { id: 'spreadsheet', label: t.catSpreadsheet },
-    { id: 'media', label: t.catMedia },
-    { id: 'archive', label: t.catArchive }
+    { id: 'presentation', label: t.catPresentation },
+    { id: 'audio', label: t.catAudio },
+    { id: 'video', label: t.catVideo },
+    { id: 'archive', label: t.catArchive },
+    { id: 'utility', label: t.catUtility }
   ];
 
   return (
-    <section className="relative overflow-hidden pt-8 pb-12 sm:pt-12 sm:pb-16 bg-gradient-to-b from-white via-slate-50/50 to-transparent dark:from-[#0B132B] dark:via-[#0F172A]/70 dark:to-transparent">
-      {/* Decorative background glow accents */}
+    <section className="relative overflow-hidden pt-8 pb-10 sm:pt-12 sm:pb-14 bg-gradient-to-b from-white via-slate-50/50 to-transparent dark:from-[#0B132B] dark:via-[#0F172A]/70 dark:to-transparent">
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-gradient-to-r from-sky-500/10 via-indigo-500/10 to-purple-500/10 rounded-full blur-3xl pointer-events-none -z-10" />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center">
@@ -50,7 +52,7 @@ export const Hero: React.FC<HeroProps> = ({
         </h1>
 
         {/* Subtitle */}
-        <p className="mt-4 sm:mt-6 text-base sm:text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto leading-relaxed">
+        <p className="mt-4 sm:mt-6 text-base sm:text-lg text-slate-600 dark:text-slate-300 max-w-3xl mx-auto leading-relaxed">
           {t.subTagline}
         </p>
 
@@ -83,7 +85,7 @@ export const Hero: React.FC<HeroProps> = ({
             <button
               key={cat.id}
               onClick={() => onSelectCategory(cat.id)}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all ${
                 selectedCategory === cat.id
                   ? 'bg-sky-500 text-white shadow-md shadow-sky-500/25 scale-105'
                   : 'bg-white/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/80'
@@ -103,13 +105,13 @@ export const Hero: React.FC<HeroProps> = ({
           </div>
           <div className="flex flex-col items-center">
             <Zap className="w-5 h-5 text-amber-500 mb-1" />
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Instant Speed</span>
-            <span className="text-[10px] text-slate-500">Client-Side Memory</span>
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">WASM Speed</span>
+            <span className="text-[10px] text-slate-500">In-Browser Memory</span>
           </div>
           <div className="flex flex-col items-center">
             <Sparkles className="w-5 h-5 text-purple-500 mb-1" />
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">100% Free</span>
-            <span className="text-[10px] text-slate-500">No Limits or Fees</span>
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">30+ Converters</span>
+            <span className="text-[10px] text-slate-500">No Paywalls or Limits</span>
           </div>
         </div>
       </div>
